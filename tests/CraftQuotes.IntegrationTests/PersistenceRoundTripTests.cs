@@ -5,13 +5,11 @@ using Shouldly;
 namespace CraftQuotes.IntegrationTests;
 
 /// <summary>Everything the domain calculated must survive a save and a reload in a fresh context, exactly.</summary>
-[Collection(PostgresCollectionDefinition.Name)]
-public sealed class PersistenceRoundTripTests(PostgresFixture postgres)
+public sealed class PersistenceRoundTripTests(ApiFactory api) : ApiTest(api)
 {
-    private static readonly DateOnly Today = new(2026, 10, 14);
-    private static readonly BusinessInstant Now = new(new DateTimeOffset(2026, 10, 14, 10, 0, 0, TimeSpan.Zero), Today);
+    private static readonly BusinessInstant Now = new(ApiFactory.StartTime, Today);
 
-    private static QuoteLineInput Line(string description, decimal quantity, decimal unitPrice, decimal vatRate = 0.25m) =>
+    private static QuoteLineInput DomainLine(string description, decimal quantity, decimal unitPrice, decimal vatRate = 0.25m) =>
         new(LineType.Material, description, quantity, "pcs", unitPrice, vatRate);
 
     [Fact]
@@ -23,17 +21,17 @@ public sealed class PersistenceRoundTripTests(PostgresFixture postgres)
             new CustomerInfo("Kari Nordmann", "kari@example.com", null, "Fjellveien 12, 5019 Bergen"),
             Today.AddDays(30),
             [
-                Line("A", 2.5m, 949.99m),
-                Line("B", 1m, 0.10m),
-                Line("C", 15m, 89m),
-                Line("D", QuoteLine.MaxQuantity, QuoteLine.MaxUnitPrice, QuoteLine.MaxVatRate),
+                DomainLine("A", 2.5m, 949.99m),
+                DomainLine("B", 1m, 0.10m),
+                DomainLine("C", 15m, 89m),
+                DomainLine("D", QuoteLine.MaxQuantity, QuoteLine.MaxUnitPrice, QuoteLine.MaxVatRate),
             ],
             Now);
 
-        await using (var db = postgres.CreateDbContext())
+        await using (var db = Api.CreateDbContext())
         {
             db.Quotes.Add(created);
-            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+            await db.SaveChangesAsync(Ct);
         }
 
         var reloaded = await Load(created.Id);
@@ -45,21 +43,21 @@ public sealed class PersistenceRoundTripTests(PostgresFixture postgres)
 
         // Replace: drop "B", reorder, change the customer; edited through a separate tracked context.
         var newCustomer = new CustomerInfo("Kari Nordmann", "kari@example.no", "+47 900 00 000", null);
-        await using (var db = postgres.CreateDbContext())
+        await using (var db = Api.CreateDbContext())
         {
-            var tracked = await db.Quotes.SingleAsync(q => q.Id == created.Id, TestContext.Current.CancellationToken);
+            var tracked = await db.Quotes.SingleAsync(q => q.Id == created.Id, Ct);
             tracked.ReplaceDraftContent(
                 "EV charger installation (revised)",
                 null,
                 newCustomer,
                 Today.AddDays(14),
                 [
-                    Line("D", QuoteLine.MaxQuantity, QuoteLine.MaxUnitPrice, QuoteLine.MaxVatRate),
-                    Line("C", 15m, 89m),
-                    Line("A", 2.5m, 949.99m),
+                    DomainLine("D", QuoteLine.MaxQuantity, QuoteLine.MaxUnitPrice, QuoteLine.MaxVatRate),
+                    DomainLine("C", 15m, 89m),
+                    DomainLine("A", 2.5m, 949.99m),
                 ],
                 Now);
-            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+            await db.SaveChangesAsync(Ct);
         }
 
         var replaced = await Load(created.Id);
@@ -79,7 +77,7 @@ public sealed class PersistenceRoundTripTests(PostgresFixture postgres)
     [Fact]
     public async Task Upper_bound_quote_round_trips_unchanged()
     {
-        var maxLine = Line("Max", QuoteLine.MaxQuantity, QuoteLine.MaxUnitPrice, QuoteLine.MaxVatRate);
+        var maxLine = DomainLine("Max", QuoteLine.MaxQuantity, QuoteLine.MaxUnitPrice, QuoteLine.MaxVatRate);
         var created = Quote.CreateDraft(
             "Upper bounds",
             null,
@@ -88,10 +86,10 @@ public sealed class PersistenceRoundTripTests(PostgresFixture postgres)
             Enumerable.Repeat(maxLine, Quote.MaxLines).ToArray(),
             Now);
 
-        await using (var db = postgres.CreateDbContext())
+        await using (var db = Api.CreateDbContext())
         {
             db.Quotes.Add(created);
-            await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+            await db.SaveChangesAsync(Ct);
         }
 
         var reloaded = await Load(created.Id);
@@ -103,8 +101,8 @@ public sealed class PersistenceRoundTripTests(PostgresFixture postgres)
 
     private async Task<Quote> Load(Guid id)
     {
-        await using var db = postgres.CreateDbContext();
-        return await db.Quotes.AsNoTracking().SingleAsync(q => q.Id == id, TestContext.Current.CancellationToken);
+        await using var db = Api.CreateDbContext();
+        return await db.Quotes.AsNoTracking().SingleAsync(q => q.Id == id, Ct);
     }
 
     private static void ShouldMatch(Quote actual, Quote expected)
