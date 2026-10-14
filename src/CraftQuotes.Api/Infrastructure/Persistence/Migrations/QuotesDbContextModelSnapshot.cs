@@ -203,9 +203,8 @@ namespace CraftQuotes.Api.Infrastructure.Persistence.Migrations
                             b1.HasKey("Id")
                                 .HasName("pk_quote_lines");
 
-                            b1.HasIndex("QuoteId", "Position")
-                                .IsUnique()
-                                .HasDatabaseName("ix_quote_lines_quote_id_position");
+                            b1.HasIndex("QuoteId")
+                                .HasDatabaseName("ix_quote_lines_quote_id");
 
                             b1.ToTable("quote_lines", (string)null);
 

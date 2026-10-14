@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CraftQuotes.Api.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(QuotesDbContext))]
-    [Migration("20261014092312_InitialCreate")]
+    [Migration("20261014094907_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -206,9 +206,8 @@ namespace CraftQuotes.Api.Infrastructure.Persistence.Migrations
                             b1.HasKey("Id")
                                 .HasName("pk_quote_lines");
 
-                            b1.HasIndex("QuoteId", "Position")
-                                .IsUnique()
-                                .HasDatabaseName("ix_quote_lines_quote_id_position");
+                            b1.HasIndex("QuoteId")
+                                .HasDatabaseName("ix_quote_lines_quote_id");
 
                             b1.ToTable("quote_lines", (string)null);
 

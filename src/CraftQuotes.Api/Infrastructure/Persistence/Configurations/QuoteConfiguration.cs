@@ -46,7 +46,9 @@ internal sealed class QuoteConfiguration : IEntityTypeConfiguration<Quote>
             line.WithOwner().HasForeignKey("QuoteId");
             line.Property<int>("Id");
             line.HasKey("Id");
-            line.HasIndex("QuoteId", nameof(QuoteLine.Position)).IsUnique();
+            // No unique (quote_id, position): every replace re-inserts positions 1..n, so a losing concurrent
+            // writer would hit a unique violation (500) instead of the version check's concurrency error (412).
+            // The aggregate is the only writer of positions and always numbers them 1..n.
 
             line.Property(l => l.Type).HasConversion<string>().HasMaxLength(EnumMaxLength);
             line.Property(l => l.Description).HasMaxLength(QuoteLine.DescriptionMaxLength);

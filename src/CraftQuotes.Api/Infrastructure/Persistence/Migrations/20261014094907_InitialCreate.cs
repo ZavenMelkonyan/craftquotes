@@ -74,10 +74,9 @@ namespace CraftQuotes.Api.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "ix_quote_lines_quote_id_position",
+                name: "ix_quote_lines_quote_id",
                 table: "quote_lines",
-                columns: new[] { "quote_id", "position" },
-                unique: true);
+                column: "quote_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_quotes_created_at",

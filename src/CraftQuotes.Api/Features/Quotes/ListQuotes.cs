@@ -40,6 +40,7 @@ internal static class ListQuotes
 {
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 100;
+    private const string LikeEscape = @"\";
 
     public static async Task<Ok<PagedResponse<QuoteSummaryResponse>>> Handle(
         [AsParameters] ListQuotesQuery query,
@@ -61,7 +62,9 @@ internal static class ListQuotes
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var pattern = $"%{EscapeLikePattern(query.Search)}%";
-            quotes = quotes.Where(q => EF.Functions.ILike(q.Title, pattern) || EF.Functions.ILike(q.Customer.Name, pattern));
+            // The escape character is passed explicitly: the two-argument ILike disables backslash escaping.
+            quotes = quotes.Where(q =>
+                EF.Functions.ILike(q.Title, pattern, LikeEscape) || EF.Functions.ILike(q.Customer.Name, pattern, LikeEscape));
         }
 
         var totalCount = await quotes.CountAsync(cancellationToken);
