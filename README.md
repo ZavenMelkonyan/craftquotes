@@ -101,6 +101,8 @@ dotnet test
 - A lost race between two requests that both pass `If-Match` is proven at database level (two-`DbContext` test) and
   mapped to `412`; there is no HTTP-level test for that exact timing.
 - Responses to `POST`/`PUT` echo decimals at in-memory scale (`4750`), `GET` at database scale (`4750.00`); numerically equal.
+- Numbers with more than 28 significant digits exceed `System.Decimal`; the JSON parser rounds them before the
+  decimal-places check runs, so "reject, never round" (R9) holds within `decimal` precision only.
 
 ## Next steps
 

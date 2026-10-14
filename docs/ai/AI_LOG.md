@@ -168,3 +168,30 @@ Phase entries are appended during the build. The "Corrections / rejected suggest
   - Secrets: only the dev-only compose/Development credentials.
   - `.gitignore` covers `bin/`, `obj/`, `.vs/`, `.idea/` (`git check-ignore`), and no build output is tracked.
 - **Corrections / rejected suggestions:** _(author fills in during review)_
+
+## Final review — multi-agent bug hunt + fixes (2026-10-14, elapsed 2:26)
+- **Asked:** a final check for remaining bugs, then fix the ones the author chose: 1–6 and 8–11, add 12 to Known limitations, fix 7 with a small mapping.
+- **How the review ran:** 7 independent finder agents (domain, HTTP contract, persistence, concurrency, test quality, delivery/docs, robustness) probed the code and the running container. Each finding then went to two verifiers: a refuter, checking it against PLAN, AI_LOG decisions and the code, and a reproducer, working in an isolated git worktree with scratch tests and curl. A completeness critic looked for gaps afterwards. 29 raw findings → 12 distinct real issues; 4 disputed items were judged not bugs or out of scope (AI_LOG placeholders are the author's; `/reject -d ''` → 415 is correct because the client declared a form body).
+- **Correction to P5:** the P5 entry said the R11 two-`DbContext` test proves the database version predicate. **It did not.** With `IsConcurrencyToken()` removed, all 51 integration tests stayed green, because the losing writer's DELETE of already-replaced line rows affected 0 rows and EF raised the concurrency error for that reason. A reviewer showed that without the token, a racing accept and reject on the same quote both commit. The production code was correct; the test proved less than claimed.
+- **Fixed (tests):**
+  - New R11 test: the first writer makes a root-only change (`Send`), the second a line edit. Only `WHERE version = @loaded` can reject it.
+  - Search test gets a decoy ("Cable 1000 m") and a `_` case.
+  - Round trip gets a line at full `numeric(18,3)` / `numeric(5,4)` scale.
+  - Unit test for the description length bound.
+  - **Mutation checks:** removing `IsConcurrencyToken()`, removing LIKE escaping, and narrowing the quantity/VAT columns in the migration each fail exactly the intended test; restored with `git checkout`, then green.
+- **Fixed (code):**
+  - `-0` price/VAT now compares instead of testing the sign bit (was 500; now stored as 0).
+  - NUL characters rejected in all text fields and `search` (was 500, Postgres error 22021).
+  - `page` capped at `int.MaxValue / MaxPageSize` (was overflow → negative OFFSET → 500).
+  - Unknown request charset → 415, mapped by `TargetSite` = `HttpRequestJsonExtensions` (was 500).
+  - Line `type` bound as a string and validated as exactly one member name, like `status` (`"Labour, Material"` was silently stored as Material).
+  - Exception-mapped errors are written with `TypedResults.Problem(...).ExecuteAsync`, so non-JSON `Accept` still gets a ProblemDetails body. Our 404s are ProblemDetails results too.
+  - OpenAPI: optional record members have `= null` defaults (no longer "required"); list query parameters are named in camelCase.
+  - `.http` PUTs reuse `{{create.response.body.$.validUntil}}` instead of a hardcoded date that would stop working after 2026-11-13.
+- **Documented, not fixed (12):** inputs with more than 28 significant digits are rounded by the JSON parser before the scale check (README Known limitations).
+- **Decisions made by AI:**
+  - Line `type` binding mirrors the existing `status` approach rather than adding a custom JSON converter.
+  - The charset mapping keys on the throwing type rather than the message text.
+  - Request records were reordered (required members first) so optional ones can take defaults. JSON binds by name, so the wire format is unchanged.
+- **Verification:** `dotnet build -warnaserror` → 0/0. `dotnet test` → **64 unit + 66 integration passed**. The 12 new tests all fail against the previous `src/` (stash check) and pass with the fixes. Rebuilt container, checked with curl: `-0` → 201 with `0.00`; NUL title or search → 400; `page=107374184` → 400 and the largest allowed page → 200; `"Labour, Material"` → 400; `charset=bogus` → 415 ProblemDetails; `Accept: text/html` 409 and 404 → `application/problem+json`; zero error-level log lines.
+- **Corrections / rejected suggestions:** _(author fills in during review)_
