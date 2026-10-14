@@ -8,10 +8,10 @@ namespace CraftQuotes.Api.Features.Quotes;
 
 public sealed record UpdateQuoteRequest(
     string? Title,
-    string? Description,
     CustomerRequest? Customer,
     DateOnly? ValidUntil,
-    IReadOnlyList<QuoteLineRequest>? Lines) : IQuoteContentRequest;
+    IReadOnlyList<QuoteLineRequest>? Lines,
+    string? Description = null) : IQuoteContentRequest;
 
 /// <summary>PUT is a full replacement: no defaults, so validUntil and lines (possibly []) are required.</summary>
 internal sealed class UpdateQuoteRequestValidator : AbstractValidator<UpdateQuoteRequest>
@@ -27,7 +27,7 @@ internal sealed class UpdateQuoteRequestValidator : AbstractValidator<UpdateQuot
 internal static class UpdateQuote
 {
     /// <summary>R2: replaces the draft's whole content; omitted optional fields are cleared.</summary>
-    public static Task<Results<Ok<QuoteResponse>, NotFound, ProblemHttpResult>> Handle(
+    public static Task<Results<Ok<QuoteResponse>, ProblemHttpResult>> Handle(
         Guid id,
         UpdateQuoteRequest request,
         IfMatch ifMatch,

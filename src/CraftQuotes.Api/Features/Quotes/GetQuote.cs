@@ -7,7 +7,7 @@ namespace CraftQuotes.Api.Features.Quotes;
 
 internal static class GetQuote
 {
-    public static async Task<Results<Ok<QuoteResponse>, NotFound>> Handle(
+    public static async Task<Results<Ok<QuoteResponse>, ProblemHttpResult>> Handle(
         Guid id,
         QuotesDbContext db,
         HttpResponse response,
@@ -16,7 +16,7 @@ internal static class GetQuote
         var quote = await db.Quotes.AsNoTracking().SingleOrDefaultAsync(q => q.Id == id, cancellationToken);
         if (quote is null)
         {
-            return TypedResults.NotFound();
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound);
         }
 
         response.Headers.ETag = QuoteETag.From(quote.Version);

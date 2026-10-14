@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace CraftQuotes.Api.Infrastructure.Http;
 
 /// <summary>Turns expected exceptions into ProblemDetails; anything else falls through to the default 500.</summary>
-internal sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
+internal sealed class ApiExceptionHandler : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
@@ -35,6 +35,15 @@ internal sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsS
                 Title = "The request is malformed.",
                 Detail = e.Message,
             },
+            // Reading a JSON body with an unknown charset (e.g. "application/json; charset=bogus") throws from the
+            // framework's body reader, outside the binding errors above.
+            InvalidOperationException e when e.TargetSite?.DeclaringType == typeof(HttpRequestJsonExtensions) =>
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status415UnsupportedMediaType,
+                    Title = "The request body's charset is not supported.",
+                    Detail = "Send JSON as UTF-8 (Content-Type: application/json).",
+                },
             _ => null,
         };
 
@@ -43,12 +52,9 @@ internal sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsS
             return false;
         }
 
-        httpContext.Response.StatusCode = problem.Status!.Value;
-        return await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
-        {
-            HttpContext = httpContext,
-            ProblemDetails = problem,
-            Exception = exception,
-        });
+        // Written regardless of the Accept header: IProblemDetailsService.TryWriteAsync writes nothing for e.g.
+        // "Accept: text/html", which would leave an empty body and report the exception as unhandled.
+        await TypedResults.Problem(problem).ExecuteAsync(httpContext);
+        return true;
     }
 }

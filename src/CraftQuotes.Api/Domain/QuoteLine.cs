@@ -40,11 +40,12 @@ public sealed class QuoteLine
         ArgumentOutOfRangeException.ThrowIfGreaterThan(input.Quantity, MaxQuantity);
         Guard.MaxDecimals(input.Quantity, QuantityDecimals);
 
-        ArgumentOutOfRangeException.ThrowIfNegative(input.UnitPrice);
+        // Compare, don't test the sign bit: JSON "-0" is a valid zero (ThrowIfNegative would reject it).
+        ArgumentOutOfRangeException.ThrowIfLessThan(input.UnitPrice, 0m);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(input.UnitPrice, MaxUnitPrice);
         Guard.MaxDecimals(input.UnitPrice, UnitPriceDecimals);
 
-        ArgumentOutOfRangeException.ThrowIfNegative(input.VatRate);
+        ArgumentOutOfRangeException.ThrowIfLessThan(input.VatRate, 0m);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(input.VatRate, MaxVatRate);
         Guard.MaxDecimals(input.VatRate, VatRateDecimals);
 

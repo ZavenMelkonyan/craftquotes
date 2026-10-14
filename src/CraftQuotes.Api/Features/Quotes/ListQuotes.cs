@@ -2,12 +2,18 @@ using CraftQuotes.Api.Domain;
 using CraftQuotes.Api.Infrastructure.Persistence;
 using FluentValidation;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace CraftQuotes.Api.Features.Quotes;
 
-// Status is bound as a string: Minimal APIs' enum binding (Enum.TryParse) would also accept "1".
-public sealed record ListQuotesQuery(string? Status, string? Search, int? Page, int? PageSize);
+// Status is bound as a string and checked by name: Minimal APIs' enum binding (Enum.TryParse) would also accept "1".
+// Names are explicit so OpenAPI documents them in camelCase, as clients send them.
+public sealed record ListQuotesQuery(
+    [FromQuery(Name = "status")] string? Status,
+    [FromQuery(Name = "search")] string? Search,
+    [FromQuery(Name = "page")] int? Page,
+    [FromQuery(Name = "pageSize")] int? PageSize);
 
 public sealed record QuoteSummaryResponse(
     Guid Id,
@@ -27,11 +33,9 @@ internal sealed class ListQuotesQueryValidator : AbstractValidator<ListQuotesQue
 {
     public ListQuotesQueryValidator()
     {
-        RuleFor(q => q.Status)
-            .Must(s => s is null || Enum.GetNames<QuoteStatus>().Contains(s, StringComparer.OrdinalIgnoreCase))
-            .WithMessage($"'Status' must be one of: {string.Join(", ", Enum.GetNames<QuoteStatus>())}.");
-        RuleFor(q => q.Search).MaximumLength(200);
-        RuleFor(q => q.Page).GreaterThanOrEqualTo(1);
+        RuleFor(q => q.Status).IsEnumName<ListQuotesQuery, QuoteStatus>();
+        RuleFor(q => q.Search).MaximumLength(200).NoNulCharacters();
+        RuleFor(q => q.Page).InclusiveBetween(1, ListQuotes.MaxPage);
         RuleFor(q => q.PageSize).InclusiveBetween(1, ListQuotes.MaxPageSize);
     }
 }
@@ -40,6 +44,9 @@ internal static class ListQuotes
 {
     public const int DefaultPageSize = 20;
     public const int MaxPageSize = 100;
+
+    // Keeps (page - 1) * pageSize within int for every allowed page size; larger pages would overflow the offset.
+    public const int MaxPage = int.MaxValue / MaxPageSize;
     private const string LikeEscape = @"\";
 
     public static async Task<Ok<PagedResponse<QuoteSummaryResponse>>> Handle(

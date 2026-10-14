@@ -21,8 +21,8 @@ internal sealed class QuoteContentValidator : AbstractValidator<IQuoteContentReq
 {
     public QuoteContentValidator()
     {
-        RuleFor(r => r.Title).NotEmpty().MaximumLength(Quote.TitleMaxLength);
-        RuleFor(r => r.Description).MaximumLength(Quote.DescriptionMaxLength);
+        RuleFor(r => r.Title).NotEmpty().MaximumLength(Quote.TitleMaxLength).NoNulCharacters();
+        RuleFor(r => r.Description).MaximumLength(Quote.DescriptionMaxLength).NoNulCharacters();
         RuleFor(r => r.Customer!).NotNull().SetValidator(new CustomerRequestValidator());
         RuleFor(r => r.Lines)
             .Must(lines => lines is null || lines.Count <= Quote.MaxLines)
@@ -31,13 +31,13 @@ internal sealed class QuoteContentValidator : AbstractValidator<IQuoteContentReq
     }
 }
 
-public sealed record CustomerRequest(string? Name, string? Email, string? Phone, string? SiteAddress)
+public sealed record CustomerRequest(string? Name, string? Email, string? Phone = null, string? SiteAddress = null)
 {
     internal CustomerInfo ToDomain() => new(Name!, Email!, Phone, SiteAddress);
 }
 
 public sealed record QuoteLineRequest(
-    LineType? Type,
+    string? Type, // validated as an exact member name; see ValidationRules.IsEnumName
     string? Description,
     decimal? Quantity,
     string? Unit,
@@ -45,17 +45,18 @@ public sealed record QuoteLineRequest(
     decimal? VatRate)
 {
     internal QuoteLineInput ToDomain() =>
-        new(Type!.Value, Description!, Quantity!.Value, Unit!, UnitPrice!.Value, VatRate!.Value);
+        new(
+            Enum.Parse<LineType>(Type!, ignoreCase: true), Description!, Quantity!.Value, Unit!, UnitPrice!.Value, VatRate!.Value);
 }
 
 internal sealed class CustomerRequestValidator : AbstractValidator<CustomerRequest>
 {
     public CustomerRequestValidator()
     {
-        RuleFor(c => c.Name).NotEmpty().MaximumLength(CustomerInfo.NameMaxLength);
-        RuleFor(c => c.Email).NotEmpty().MaximumLength(CustomerInfo.EmailMaxLength).EmailAddress();
-        RuleFor(c => c.Phone).MaximumLength(CustomerInfo.PhoneMaxLength);
-        RuleFor(c => c.SiteAddress).MaximumLength(CustomerInfo.SiteAddressMaxLength);
+        RuleFor(c => c.Name).NotEmpty().MaximumLength(CustomerInfo.NameMaxLength).NoNulCharacters();
+        RuleFor(c => c.Email).NotEmpty().MaximumLength(CustomerInfo.EmailMaxLength).EmailAddress().NoNulCharacters();
+        RuleFor(c => c.Phone).MaximumLength(CustomerInfo.PhoneMaxLength).NoNulCharacters();
+        RuleFor(c => c.SiteAddress).MaximumLength(CustomerInfo.SiteAddressMaxLength).NoNulCharacters();
     }
 }
 
@@ -64,9 +65,9 @@ internal sealed class QuoteLineRequestValidator : AbstractValidator<QuoteLineReq
 {
     public QuoteLineRequestValidator()
     {
-        RuleFor(l => l.Type).NotNull().IsInEnum();
-        RuleFor(l => l.Description).NotEmpty().MaximumLength(QuoteLine.DescriptionMaxLength);
-        RuleFor(l => l.Unit).NotEmpty().MaximumLength(QuoteLine.UnitMaxLength);
+        RuleFor(l => l.Type).NotNull().IsEnumName<QuoteLineRequest, LineType>();
+        RuleFor(l => l.Description).NotEmpty().MaximumLength(QuoteLine.DescriptionMaxLength).NoNulCharacters();
+        RuleFor(l => l.Unit).NotEmpty().MaximumLength(QuoteLine.UnitMaxLength).NoNulCharacters();
 
         RuleFor(l => l.Quantity).NotNull()
             .GreaterThan(0m).LessThanOrEqualTo(QuoteLine.MaxQuantity)

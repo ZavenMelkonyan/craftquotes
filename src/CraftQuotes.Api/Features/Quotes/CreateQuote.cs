@@ -6,12 +6,13 @@ using Microsoft.Extensions.Options;
 
 namespace CraftQuotes.Api.Features.Quotes;
 
+// Optional members have defaults so OpenAPI reports them as optional; JSON binds by name, not position.
 public sealed record CreateQuoteRequest(
     string? Title,
-    string? Description,
     CustomerRequest? Customer,
-    DateOnly? ValidUntil,
-    IReadOnlyList<QuoteLineRequest>? Lines) : IQuoteContentRequest;
+    string? Description = null,
+    DateOnly? ValidUntil = null,
+    IReadOnlyList<QuoteLineRequest>? Lines = null) : IQuoteContentRequest;
 
 internal sealed class CreateQuoteRequestValidator : AbstractValidator<CreateQuoteRequest>
 {

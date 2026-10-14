@@ -9,7 +9,7 @@ namespace CraftQuotes.Api.Features.Quotes;
 /// <summary>The one sequence every mutation of an existing quote follows (PLAN §4, "Mechanics").</summary>
 internal static class QuoteMutation
 {
-    public static async Task<Results<Ok<QuoteResponse>, NotFound, ProblemHttpResult>> ExecuteAsync(
+    public static async Task<Results<Ok<QuoteResponse>, ProblemHttpResult>> ExecuteAsync(
         Guid id,
         IfMatch ifMatch,
         QuotesDbContext db,
@@ -20,7 +20,7 @@ internal static class QuoteMutation
         var quote = await db.Quotes.SingleOrDefaultAsync(q => q.Id == id, cancellationToken);
         if (quote is null)
         {
-            return TypedResults.NotFound();
+            return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound);
         }
 
         var loadedVersion = quote.Version;

@@ -75,10 +75,21 @@ public sealed class ListQuotesTests(ApiFactory api) : ApiTest(api)
     [InlineData("?page=0")]
     [InlineData("?pageSize=101")]
     [InlineData("?page=abc")]
+    [InlineData("?page=21474837")]      // (page - 1) * pageSize would overflow int
+    [InlineData("?search=a%00b")]       // NUL cannot be stored or matched by Postgres text
+    [InlineData("?status=Draft,Sent")]  // flag-style combinations are not a status
     public async Task Invalid_query_is_400(string query)
     {
         var response = await Client.GetAsync($"/api/quotes{query}", Ct);
 
         await ShouldBeProblemAsync(response, HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Largest_allowed_page_is_answered_without_overflow()
+    {
+        var result = await ListAsync($"?page={int.MaxValue / 100}&pageSize=100");
+
+        result.Items.ShouldBeEmpty();
     }
 }
