@@ -86,3 +86,19 @@ Phase entries are appended during the build. The "Corrections / rejected suggest
   - Added `<Using Include="Xunit" />` to the test projects (what the xUnit template does) and `Microsoft.Extensions.TimeProvider.Testing` to the unit tests (allowed list).
 - **Verification:** `dotnet build -warnaserror` → 0 warnings, 0 errors. `dotnet test` → 63 passed, 0 failed (unit). P0's deferred gate: after the reboot, `docker compose up -d db` → `postgres:17-alpine` Up (healthy).
 - **Corrections / rejected suggestions:** _(author fills in during review)_
+
+## P2 — Persistence (2026-10-14, elapsed 0:50)
+- **Asked:** DbContext + EF configurations (snake_case, complex customer, owned lines with internal key + position, precisions, concurrency token, indexes, sequence number), initial migration, startup-migration flag, fresh-context round-trip gate.
+- **Produced:** `Infrastructure/Persistence/QuotesDbContext.cs`, `Configurations/QuoteConfiguration.cs`, `Migrations/…_InitialCreate`; `Quote.Number`; `Program.cs` DbContext registration + `Database:MigrateOnStartup`; appsettings (dev connection string = compose dev credentials); `tests/CraftQuotes.IntegrationTests/PostgresFixture.cs` + `PersistenceRoundTripTests.cs`. Also `.gitattributes` (`* text=auto eol=lf`, author-approved, separate `chore:` commit).
+- **Decisions made by AI:**
+  - `Number` is a `bigint` from the `quote_number_seq` sequence (DB default `nextval`), formatted as `Q-000042` at the API boundary (P3). Formatting inside SQL with `lpad(…, 6)` would silently truncate past 999,999.
+  - Enums stored as strings (`varchar(20)`): readable rows, and reordering enum members can't corrupt data.
+  - Unique index `(quote_id, position)` on `quote_lines`, plus a unique index on `number`.
+  - Lines navigation uses field access (`_lines`), so EF never needs a setter on the read-only `Lines`.
+  - The connection string is read lazily inside `AddDbContext` so a test host can override it after `Program` starts (WebApplicationFactory, P5).
+  - `QuotesDbContext.Configure(...)` is the single source for `UseNpgsql` + snake_case, shared by the app and the tests.
+  - `.editorconfig` marks `Migrations/**` as `generated_code = true`. EF-generated migration code tripped CA1861; it's tool output and gets regenerated.
+  - The round-trip gate is kept as a **permanent integration test** on Testcontainers (same `postgres:17-alpine` image), not a throwaway script. The fixture is the start of the P5 harness. The migration was also applied to the compose database via the startup flag.
+  - Test collection class named `PostgresCollectionDefinition` (CA1711 rejects the `Collection` suffix).
+- **Verification:** `dotnet ef migrations script` reviewed (DDL in the P2 brief). `dotnet run` (Development) against compose → "Applying migration '…_InitialCreate'", `\dt` shows `quotes`, `quote_lines`, `__EFMigrationsHistory`; sequences `quote_number_seq`, `quote_lines_id_seq`. EF logs one `fail:` for the history-table probe on an empty database; that's expected and the migration then applies. `dotnet build -warnaserror` → 0/0. `dotnet test` → unit 63 passed, integration 2 passed, 0 failed.
+- **Corrections / rejected suggestions:** _(author fills in during review)_

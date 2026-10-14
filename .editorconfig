@@ -22,3 +22,7 @@ dotnet_sort_system_directives_first = true
 # which CA1707 (no underscores in identifiers) would reject. Scoped to tests only.
 [tests/**.cs]
 dotnet_diagnostic.CA1707.severity = none
+
+# EF Core migrations are tool-generated and regenerated, not hand-maintained.
+[src/CraftQuotes.Api/Infrastructure/Persistence/Migrations/**.cs]
+generated_code = true

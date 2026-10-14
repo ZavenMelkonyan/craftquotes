@@ -12,6 +12,10 @@ public sealed class Quote
     private Quote() { } // EF Core
 
     public Guid Id { get; private set; }
+
+    /// <summary>Human-facing sequence number, assigned by the database on insert (0 until saved).</summary>
+    public long Number { get; private set; }
+
     public string Title { get; private set; } = null!;
     public string? Description { get; private set; }
     public CustomerInfo Customer { get; private set; } = null!;
