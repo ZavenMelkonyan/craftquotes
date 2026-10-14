@@ -102,3 +102,18 @@ Phase entries are appended during the build. The "Corrections / rejected suggest
   - Test collection class named `PostgresCollectionDefinition` (CA1711 rejects the `Collection` suffix).
 - **Verification:** `dotnet ef migrations script` reviewed (DDL in the P2 brief). `dotnet run` (Development) against compose → "Applying migration '…_InitialCreate'", `\dt` shows `quotes`, `quote_lines`, `__EFMigrationsHistory`; sequences `quote_number_seq`, `quote_lines_id_seq`. EF logs one `fail:` for the history-table probe on an empty database; that's expected and the migration then applies. `dotnet build -warnaserror` → 0/0. `dotnet test` → unit 63 passed, integration 2 passed, 0 failed.
 - **Corrections / rejected suggestions:** _(author fills in during review)_
+
+## P3 — Create / Get / List (2026-10-14, elapsed 0:56)
+- **Asked:** route group `/api/quotes` with create, get (strong ETag) and list (filter/search/paging); FluentValidation endpoint filter; ProblemDetails wiring; OpenAPI + Scalar behind a flag; `.http` Kari scenario.
+- **Produced:** `Features/Quotes/` (`CreateQuote`, `GetQuote`, `ListQuotes`, `QuoteRequestParts`, `QuoteResponse`, `QuotesOptions`, `QuoteEndpoints`), `Infrastructure/Http/` (`ValidationFilter`, `ApiExceptionHandler`, `QuoteETag`), `Program.cs` wiring, appsettings (`OpenApi:EnableUi`, `Quotes:*`), `CraftQuotes.Api.http`.
+- **Decisions made by AI:**
+  - Request records use nullable members (`decimal? VatRate`, etc.), so a missing value is a 400 from the validator rather than a silent default.
+  - Validation error keys are converted to the JSON path the client sent (`lines[0].vatRate`), not FluentValidation's PascalCase names.
+  - The list `status` is bound as a string and checked against enum names. Minimal APIs' enum binding uses `Enum.TryParse`, which would accept `status=1`.
+  - `search` uses `ILIKE` on title and customer name, with `%`, `_` and `\` escaped so input matches literally.
+  - The list projects in SQL; only the `Q-000001` formatting of the fetched `number` runs client-side (allowed in EF's final projection).
+  - The exception handler is named `ApiExceptionHandler`, since it maps both `DomainException` and `BadHttpRequestException`. `QuoteETag` holds the ETag format; `If-Match` parsing joins it in P4.
+  - `Quotes:BusinessTimeZone` / `Quotes:DefaultValidityDays` go through `QuotesOptions`; `BusinessClock` and `TimeProvider.System` are singletons.
+- **Verification:** `dotnet build -warnaserror` → 0/0; `dotnet test` → 63 unit + 2 integration passed. Manual `curl.exe` against `dotnet run` (Development) + compose Postgres: create → 201 + `Location`, totals 18,215.00 / 4,553.75 / 22,768.75; get → 200 + `ETag: "1"`; list with status + search → 1 item, `isExpired` false; unknown id → 404 ProblemDetails; validation → 400 with `customer`, `lines[0].quantity` (1.0001) and `lines[0].vatRate` (missing), while `unitPrice: 950.000` passed; malformed JSON and integer enum → 400 ProblemDetails; `status=1` → 400. Same binding failures checked with **`ASPNETCORE_ENVIRONMENT=Production`** → 400 ProblemDetails (filled by `UseStatusCodePages`). OpenAPI → 404 with the flag off, 200 for `/openapi/v1.json` and `/scalar/v1` with it on.
+- **Observed, not changed:** the create response echoes decimals and timestamps at in-memory precision (`4750`, `…57.2873231`), while GET reads them back from Postgres (`4750.00`, `…57.287323`, microseconds). Values are numerically identical; only GET carries an ETag, so strong-ETag semantics hold.
+- **Corrections / rejected suggestions:** _(author fills in during review)_

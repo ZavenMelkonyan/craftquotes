@@ -1,0 +1,32 @@
+@baseUrl = http://localhost:5080
+
+### Kari's EV charger quote: Ola creates a draft from the van
+# @name create
+POST {{baseUrl}}/api/quotes
+Content-Type: application/json
+
+{
+  "title": "EV charger installation",
+  "customer": { "name": "Kari Nordmann", "email": "kari@example.com", "siteAddress": "Fjellveien 12, 5019 Bergen" },
+  "lines": [
+    { "type": "Labour",   "description": "Installation, electrician", "quantity": 5,  "unit": "h",   "unitPrice": 950,  "vatRate": 0.25 },
+    { "type": "Material", "description": "EV charger 11 kW",          "quantity": 1,  "unit": "pcs", "unitPrice": 8990, "vatRate": 0.25 },
+    { "type": "Material", "description": "Cable 5x6 mm²",             "quantity": 15, "unit": "m",   "unitPrice": 89,   "vatRate": 0.25 },
+    { "type": "Other",    "description": "Call-out / travel",         "quantity": 1,  "unit": "pcs", "unitPrice": 690,  "vatRate": 0.25 }
+  ]
+}
+
+### Get it back: the ETag header carries the version used for If-Match
+GET {{baseUrl}}/api/quotes/{{create.response.body.$.id}}
+
+### List: newest first, filter and search
+GET {{baseUrl}}/api/quotes?status=Draft&search=kari&page=1&pageSize=20
+
+### Validation error: missing customer, line without vatRate, too many decimals (400)
+POST {{baseUrl}}/api/quotes
+Content-Type: application/json
+
+{
+  "title": "Broken",
+  "lines": [ { "type": "Labour", "description": "Work", "quantity": 1.0001, "unit": "h", "unitPrice": 100 } ]
+}
