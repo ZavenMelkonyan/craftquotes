@@ -101,6 +101,15 @@ public sealed class QuoteLineRulesTests
             () => Draft([new QuoteLineInput(LineType.Labour, description, 1m, unit, 100m, 0.25m)]));
 
     [Fact]
+    public void R9_Description_longer_than_200_characters_is_rejected()
+    {
+        var description = new string('x', QuoteLine.DescriptionMaxLength + 1);
+
+        Should.Throw<ArgumentException>(
+            () => Draft([new QuoteLineInput(LineType.Labour, description, 1m, "h", 100m, 0.25m)]));
+    }
+
+    [Fact]
     public void R9_At_most_100_lines()
     {
         Should.Throw<ArgumentException>(() => Draft(Enumerable.Repeat(Line(), Quote.MaxLines + 1).ToArray()));

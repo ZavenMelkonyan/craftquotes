@@ -47,12 +47,13 @@ public sealed class ListQuotesTests(ApiFactory api) : ApiTest(api)
     {
         var byTitle = await CreateAsync(Content(title: "Bathroom 100% refit", customerName: "Ola Hansen"));
         var byCustomer = await CreateAsync(Content(title: "EV charger", customerName: "Kari Nordmann"));
-        await CreateAsync(Content(title: "Kitchen", customerName: "Per Olsen"));
+        await CreateAsync(Content(title: "Cable 1000 m", customerName: "Per Olsen"));
 
         (await ListAsync("?search=KARI")).Items.Select(q => q.Id).ShouldBe([byCustomer.Id]);
         (await ListAsync("?search=bathroom")).Items.Select(q => q.Id).ShouldBe([byTitle.Id]);
-        // "%" is matched literally, not as a wildcard that would match every row.
+        // "%" and "_" are matched literally; as wildcards, "100%" would also match "Cable 1000 m" and "_" every row.
         (await ListAsync("?search=100%25")).Items.Select(q => q.Id).ShouldBe([byTitle.Id]);
+        (await ListAsync("?search=_")).Items.ShouldBeEmpty();
     }
 
     [Fact]

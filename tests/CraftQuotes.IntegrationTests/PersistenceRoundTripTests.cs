@@ -24,6 +24,7 @@ public sealed class PersistenceRoundTripTests(ApiFactory api) : ApiTest(api)
                 DomainLine("A", 2.5m, 949.99m),
                 DomainLine("B", 1m, 0.10m),
                 DomainLine("C", 15m, 89m),
+                DomainLine("E", 1.125m, 99.99m, 0.1234m), // uses the full scale of numeric(18,3) and numeric(5,4)
                 DomainLine("D", QuoteLine.MaxQuantity, QuoteLine.MaxUnitPrice, QuoteLine.MaxVatRate),
             ],
             Now);
@@ -54,6 +55,7 @@ public sealed class PersistenceRoundTripTests(ApiFactory api) : ApiTest(api)
                 [
                     DomainLine("D", QuoteLine.MaxQuantity, QuoteLine.MaxUnitPrice, QuoteLine.MaxVatRate),
                     DomainLine("C", 15m, 89m),
+                    DomainLine("E", 1.125m, 99.99m, 0.1234m),
                     DomainLine("A", 2.5m, 949.99m),
                 ],
                 Now);
@@ -67,10 +69,11 @@ public sealed class PersistenceRoundTripTests(ApiFactory api) : ApiTest(api)
         replaced.ValidUntil.ShouldBe(Today.AddDays(14));
         replaced.Version.ShouldBe(2);
         var lines = replaced.Lines.OrderBy(l => l.Position).ToList();
-        lines.Select(l => (l.Position, l.Description)).ShouldBe([(1, "D"), (2, "C"), (3, "A")]);
+        lines.Select(l => (l.Position, l.Description)).ShouldBe([(1, "D"), (2, "C"), (3, "E"), (4, "A")]);
         lines[0].NetAmount.ShouldBe(1_000_000_000_000.00m);
-        lines[2].NetAmount.ShouldBe(2_374.98m);
-        replaced.Subtotal.ShouldBe(1_000_000_000_000.00m + 1_335.00m + 2_374.98m);
+        (lines[2].Quantity, lines[2].VatRate, lines[2].NetAmount, lines[2].VatAmount).ShouldBe((1.125m, 0.1234m, 112.49m, 13.88m));
+        lines[3].NetAmount.ShouldBe(2_374.98m);
+        replaced.Subtotal.ShouldBe(1_000_000_000_000.00m + 1_335.00m + 112.49m + 2_374.98m);
         replaced.Total.ShouldBe(replaced.Lines.Sum(l => l.TotalAmount));
     }
 
