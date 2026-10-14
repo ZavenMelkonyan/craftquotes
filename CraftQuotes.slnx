@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CraftQuotes.Api/CraftQuotes.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CraftQuotes.IntegrationTests/CraftQuotes.IntegrationTests.csproj" />
+    <Project Path="tests/CraftQuotes.UnitTests/CraftQuotes.UnitTests.csproj" />
+  </Folder>
+</Solution>
