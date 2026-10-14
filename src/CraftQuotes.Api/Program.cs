@@ -4,6 +4,7 @@ using CraftQuotes.Api.Features.Quotes;
 using CraftQuotes.Api.Infrastructure.Http;
 using CraftQuotes.Api.Infrastructure.Persistence;
 using FluentValidation;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Scalar.AspNetCore;
@@ -29,6 +30,13 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddOpenApi(options => options.AddOperationTransformer<IfMatchOperationTransformer>());
+builder.Services.AddHealthChecks().AddDbContextCheck<QuotesDbContext>(tags: ["ready"]);
+
+if (!builder.Environment.IsDevelopment())
+{
+    builder.Logging.ClearProviders();
+    builder.Logging.AddJsonConsole();
+}
 
 var app = builder.Build();
 
@@ -50,5 +58,9 @@ if (app.Configuration.GetValue<bool>("OpenApi:EnableUi"))
 }
 
 app.MapQuoteEndpoints();
+
+// Liveness checks nothing external (a DB outage must not restart the process); readiness checks the database.
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 
 await app.RunAsync();

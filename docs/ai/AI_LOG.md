@@ -147,3 +147,24 @@ Phase entries are appended during the build. The "Corrections / rejected suggest
 - **Mutation check:** removed the `Status != Draft` guard in `Quote.ReplaceDraftContent` → **5 failures**: unit `R2_Cannot_edit_sent_quote`, `R7_Terminal_quote_accepts_no_further_changes` (Accepted, Rejected); integration `R2_Edit_after_send_is_409_not_editable`, `D19_PUT_on_sent_quote_with_stale_tag_is_409_not_412`. Reverted with `git checkout` (file identical to HEAD) → all green.
 - **Verification:** `dotnet build -warnaserror` → 0/0; `dotnet test` → **63 unit + 51 integration passed, 0 failed, 0 skipped**.
 - **Corrections / rejected suggestions:** _(author fills in during review)_
+
+## P6 — Polish and delivery (2026-10-14, elapsed 1:21)
+- **Asked:** multi-stage non-root Dockerfile with the Oslo time zone verified; `api` in compose; health checks; JSON logging outside Development; README; final self-review and a clean compose run.
+- **Produced:** `Dockerfile`, `.dockerignore`, `api` service in `docker-compose.yml`, `/health/live` + `/health/ready` and JSON console logging in `Program.cs`, `README.md` (AI section marked `DRAFT` for the author to rewrite).
+- **Decisions made by AI:**
+  - The image publishes only the API (tests run in CI, not in `docker build`). Restore is a separate layer from the project files. Runs as the base image's built-in non-root user (`USER $APP_UID`, uid 1654).
+  - No `tzdata` install needed: `aspnet:10.0` (Ubuntu 24.04) already ships `/usr/share/zoneinfo/Europe/Oslo`, and the running container computed today + 30 = 2026-11-13 through `BusinessClock`.
+  - Liveness checks nothing external, so a database outage doesn't get the process restarted; readiness runs the `DbContext` check.
+  - Compose connection string sets `GSS Encryption Mode=Disable`. Npgsql otherwise probes Kerberos, and the image has no `libgssapi_krb5`, which logged an `Error:` line on every start. Password auth is used, so nothing is lost; this avoids adding packages to the image.
+- **Verification:**
+  - `dotnet build -warnaserror` → 0/0; `dotnet test` → 63 unit + 51 integration passed.
+  - Container: uid 1654 (`app`), Ubuntu 24.04.5, runtime 10.0.13, Oslo zone file present.
+  - Clean `docker compose down -v && docker compose up --build`: `/health/live` 200, `/health/ready` 200, `/openapi/v1.json` 200, `/scalar/v1` 200, logs are JSON, no gssapi noise. The `.http` Kari flow against the container: create 201 (`Q-000001`, validUntil 2026-11-13) → GET `ETag: "1"` → list 1 → validation 400 → PUT `"1"` 200 (18,215 / 4,553.75 / 22,768.75) → stale PUT 412 → send 200 → PUT after send 409 `quote.not_editable` → accept 200 v4.
+  - An inline `curl` body containing `²` returned 400 because the Windows command line didn't send UTF-8 (the same body from a UTF-8 file → 201). That was a test-tool artefact, and it also confirmed invalid UTF-8 gets a 400 ProblemDetails outside Development.
+- **Final self-review:**
+  - Zero warnings.
+  - No TODO/FIXME/HACK.
+  - Unused usings: IDE0005 raised to warning for a one-off build → none. A planted unused `using` was flagged, so the check works; both files restored.
+  - Secrets: only the dev-only compose/Development credentials.
+  - `.gitignore` covers `bin/`, `obj/`, `.vs/`, `.idea/` (`git check-ignore`), and no build output is tracked.
+- **Corrections / rejected suggestions:** _(author fills in during review)_

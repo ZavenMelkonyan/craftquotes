@@ -16,5 +16,17 @@ services:
       timeout: 3s
       retries: 10
 
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__Quotes: "Host=db;Port=5432;Database=craftquotes;Username=craftquotes;Password=craftquotes_dev;GSS Encryption Mode=Disable"
+      Database__MigrateOnStartup: "true"
+      OpenApi__EnableUi: "true"
+    ports:
+      - "8080:8080"
+
 volumes:
   db-data:
