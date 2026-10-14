@@ -11,20 +11,11 @@ public sealed record CreateQuoteRequest(
     string? Description,
     CustomerRequest? Customer,
     DateOnly? ValidUntil,
-    IReadOnlyList<QuoteLineRequest>? Lines);
+    IReadOnlyList<QuoteLineRequest>? Lines) : IQuoteContentRequest;
 
 internal sealed class CreateQuoteRequestValidator : AbstractValidator<CreateQuoteRequest>
 {
-    public CreateQuoteRequestValidator()
-    {
-        RuleFor(r => r.Title).NotEmpty().MaximumLength(Quote.TitleMaxLength);
-        RuleFor(r => r.Description).MaximumLength(Quote.DescriptionMaxLength);
-        RuleFor(r => r.Customer!).NotNull().SetValidator(new CustomerRequestValidator());
-        RuleFor(r => r.Lines)
-            .Must(lines => lines is null || lines.Count <= Quote.MaxLines)
-            .WithMessage($"A quote can have at most {Quote.MaxLines} lines.");
-        RuleForEach(r => r.Lines).NotNull().SetValidator(new QuoteLineRequestValidator());
-    }
+    public CreateQuoteRequestValidator() => Include(new QuoteContentValidator());
 }
 
 internal static class CreateQuote

@@ -64,7 +64,8 @@ public sealed class Quote
     {
         if (Status != QuoteStatus.Draft)
         {
-            throw new DomainException(QuoteErrors.NotEditable, $"A {Status} quote cannot be edited.");
+            throw new DomainException(
+                QuoteErrors.NotEditable, $"The quote is {Status}; only a Draft quote can be edited.");
         }
 
         SetContent(title, description, customer, validUntil, BuildLines(lines));
@@ -150,7 +151,7 @@ public sealed class Quote
         if (Status != required)
         {
             throw new DomainException(
-                QuoteErrors.InvalidTransition, $"A {Status} quote cannot be {action}; it must be {required}.");
+                QuoteErrors.InvalidTransition, $"The quote is {Status}; only a {required} quote can be {action}.");
         }
     }
 

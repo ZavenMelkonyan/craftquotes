@@ -6,6 +6,31 @@ namespace CraftQuotes.Api.Features.Quotes;
 // Request parts shared by create (POST) and replace (PUT). Every member is nullable so that a missing value
 // is reported by the validator as 400 instead of silently becoming a default (e.g. vatRate = 0).
 
+/// <summary>The editable content of a quote, as sent by create and replace.</summary>
+public interface IQuoteContentRequest
+{
+    string? Title { get; }
+    string? Description { get; }
+    CustomerRequest? Customer { get; }
+    DateOnly? ValidUntil { get; }
+    IReadOnlyList<QuoteLineRequest>? Lines { get; }
+}
+
+/// <summary>Rules common to POST and PUT; each request's own validator adds what it requires on top.</summary>
+internal sealed class QuoteContentValidator : AbstractValidator<IQuoteContentRequest>
+{
+    public QuoteContentValidator()
+    {
+        RuleFor(r => r.Title).NotEmpty().MaximumLength(Quote.TitleMaxLength);
+        RuleFor(r => r.Description).MaximumLength(Quote.DescriptionMaxLength);
+        RuleFor(r => r.Customer!).NotNull().SetValidator(new CustomerRequestValidator());
+        RuleFor(r => r.Lines)
+            .Must(lines => lines is null || lines.Count <= Quote.MaxLines)
+            .WithMessage($"A quote can have at most {Quote.MaxLines} lines.");
+        RuleForEach(r => r.Lines).NotNull().SetValidator(new QuoteLineRequestValidator());
+    }
+}
+
 public sealed record CustomerRequest(string? Name, string? Email, string? Phone, string? SiteAddress)
 {
     internal CustomerInfo ToDomain() => new(Name!, Email!, Phone, SiteAddress);

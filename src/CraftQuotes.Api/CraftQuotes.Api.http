@@ -30,3 +30,60 @@ Content-Type: application/json
   "title": "Broken",
   "lines": [ { "type": "Labour", "description": "Work", "quantity": 1.0001, "unit": "h", "unitPrice": 100 } ]
 }
+
+### Ola adds the forgotten RCD: full replace of the draft, If-Match = the version he saw (1 → 2)
+PUT {{baseUrl}}/api/quotes/{{create.response.body.$.id}}
+If-Match: "1"
+Content-Type: application/json
+
+{
+  "title": "EV charger installation",
+  "customer": { "name": "Kari Nordmann", "email": "kari@example.com", "siteAddress": "Fjellveien 12, 5019 Bergen" },
+  "validUntil": "2026-11-13",
+  "lines": [
+    { "type": "Labour",   "description": "Installation, electrician", "quantity": 5,  "unit": "h",   "unitPrice": 950,  "vatRate": 0.25 },
+    { "type": "Material", "description": "EV charger 11 kW",          "quantity": 1,  "unit": "pcs", "unitPrice": 8990, "vatRate": 0.25 },
+    { "type": "Material", "description": "Cable 5x6 mm²",             "quantity": 15, "unit": "m",   "unitPrice": 89,   "vatRate": 0.25 },
+    { "type": "Material", "description": "RCD Type B 40A",            "quantity": 1,  "unit": "pcs", "unitPrice": 2450, "vatRate": 0.25 },
+    { "type": "Other",    "description": "Call-out / travel",         "quantity": 1,  "unit": "pcs", "unitPrice": 690,  "vatRate": 0.25 }
+  ]
+}
+
+### The office manager saves with the same stale version: 412, nothing is overwritten
+PUT {{baseUrl}}/api/quotes/{{create.response.body.$.id}}
+If-Match: "1"
+Content-Type: application/json
+
+{
+  "title": "EV charger installation",
+  "customer": { "name": "Kari Nordmann", "email": "kari@example.com" },
+  "validUntil": "2026-11-13",
+  "lines": []
+}
+
+### Ola sends the version he reviewed (2 → 3); the quote is now locked
+POST {{baseUrl}}/api/quotes/{{create.response.body.$.id}}/send
+If-Match: "2"
+
+### Editing after send: 409 quote.not_editable (even with a stale tag)
+PUT {{baseUrl}}/api/quotes/{{create.response.body.$.id}}
+If-Match: "1"
+Content-Type: application/json
+
+{
+  "title": "Too late",
+  "customer": { "name": "Kari Nordmann", "email": "kari@example.com" },
+  "validUntil": "2026-11-13",
+  "lines": []
+}
+
+### Kari accepts (3 → 4)
+POST {{baseUrl}}/api/quotes/{{create.response.body.$.id}}/accept
+If-Match: "3"
+
+### (Alternative ending) Kari rejects with a reason; the body is optional
+# POST {{baseUrl}}/api/quotes/{{create.response.body.$.id}}/reject
+# If-Match: "3"
+# Content-Type: application/json
+#
+# { "reason": "Too expensive" }
