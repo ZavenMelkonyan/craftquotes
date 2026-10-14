@@ -70,3 +70,19 @@ Phase entries are appended during the build. The "Corrections / rejected suggest
 - **Verification:** `dotnet build -warnaserror` → 0 warnings, 0 errors. Throwaway xUnit fact ran under VSTest (1 passed), then removed. `dotnet tool run dotnet-ef --version` → 10.0.13. `docker compose config` valid. CI YAML written, not run remotely.
 - **Environment issue (db gate deferred):** Docker Desktop crashes on start because AF_UNIX socket files under `%LOCALAPPDATA%` cannot be removed (Win32 error 1920). First `Docker\run\dockerInference` (stale, from March); after renaming `Docker\run` → `run.stale-20261014` (author-approved), the same failure hit `docker-secrets-engine\engine.sock`, and the socket Docker had just created was also undeletable, so this is a host problem, not a stale file. Stopped at the 15-minute tooling timebox. **`docker compose up -d db` healthy is not yet verified**; author is rebooting, and it will be checked at the start of P2.
 - **Corrections / rejected suggestions:** _(author fills in during review)_
+
+## P1 — Domain + unit tests (2026-10-14, elapsed 0:40)
+- **Asked:** implement the domain model (Quote aggregate, lines, customer snapshot, money, business clock, errors) and unit tests for R1–R10 per PLAN §7.
+- **Produced:** `src/CraftQuotes.Api/Domain/` (`Quote`, `QuoteLine`, `QuoteLineInput`, `CustomerInfo`, `QuoteStatus`, `LineType`, `Money`, `BusinessClock` + `BusinessInstant`, `DomainException`, `QuoteErrors`, `Guard`); `tests/CraftQuotes.UnitTests/` (`QuoteLifecycleTests`, `QuoteLineRulesTests`, `MoneyTests`, `BusinessClockTests`, `TestData`).
+- **Decisions made by AI:**
+  - `QuoteLineInput` record carries caller data; the aggregate assigns `Position` (1-based request order) and computes amounts via an `internal` `QuoteLine.Create`.
+  - Domain guards for R9 and string limits throw `ArgumentException` (an "impossible state" once the validator has run, which surfaces as a 500 if it ever fires); business-state rules throw `DomainException` (→ 409). Limits are `const`s on the domain types so validators and EF configs reuse one source.
+  - `SetContent` validates every argument into locals before assigning; `BuildLines` runs before it, so a failed edit leaves the aggregate untouched (R10). `Touch` is the only place that bumps `Version`.
+  - `Guid.CreateVersion7(now.Utc)`: the id's timestamp equals `CreatedAt`, from the same clock read.
+  - `BusinessClock.Now()` returns a `BusinessInstant(Utc, Today)` from one `GetUtcNow()` call. A test with auto-advance at 23:30 Oslo time would catch a second read.
+  - POST defaults (valid-until +30 days, empty lines) stay out of the domain; they belong to the create handler (P3).
+  - `Number` deferred to P2: it is assigned by a database sequence, so how it maps decides its CLR shape.
+  - CA1707 (underscores in identifiers) disabled **for `tests/**` only** in `.editorconfig`: it conflicts with the rule-named test convention (PLAN §7). Production code keeps the rule.
+  - Added `<Using Include="Xunit" />` to the test projects (what the xUnit template does) and `Microsoft.Extensions.TimeProvider.Testing` to the unit tests (allowed list).
+- **Verification:** `dotnet build -warnaserror` → 0 warnings, 0 errors. `dotnet test` → 63 passed, 0 failed (unit). P0's deferred gate: after the reboot, `docker compose up -d db` → `postgres:17-alpine` Up (healthy).
+- **Corrections / rejected suggestions:** _(author fills in during review)_

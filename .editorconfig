@@ -17,3 +17,8 @@ trim_trailing_whitespace = false
 [*.cs]
 csharp_style_namespace_declarations = file_scoped:warning
 dotnet_sort_system_directives_first = true
+
+# Test names follow the rule-referencing convention (e.g. R2_Cannot_edit_sent_quote, PLAN §7),
+# which CA1707 (no underscores in identifiers) would reject. Scoped to tests only.
+[tests/**.cs]
+dotnet_diagnostic.CA1707.severity = none
