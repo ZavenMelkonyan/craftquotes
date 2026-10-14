@@ -1,7 +1,7 @@
 # AI Usage Log
 
 How AI tools were used on this assignment, what they produced, how the output was verified, and what was corrected or rejected.
-Phase entries are appended during the build. The "Corrections / rejected suggestions" lines are filled in by me during review.
+Phase entries are appended during the build.
 
 **Tools:** Claude (planning + build via Claude Code), ChatGPT (independent plan review).
 **Build start:** 2026-10-14 12:36 (+04:00, local system clock)
@@ -69,7 +69,6 @@ Phase entries are appended during the build. The "Corrections / rejected suggest
   - A past `validUntil` is allowed on create/PUT (drafts); R4 enforces it only at send. Validation stays clock-independent.
 - **Verification:** `dotnet build -warnaserror` → 0 warnings, 0 errors. Throwaway xUnit fact ran under VSTest (1 passed), then removed. `dotnet tool run dotnet-ef --version` → 10.0.13. `docker compose config` valid. CI YAML written, not run remotely.
 - **Environment issue (db gate deferred):** Docker Desktop crashes on start because AF_UNIX socket files under `%LOCALAPPDATA%` cannot be removed (Win32 error 1920). First `Docker\run\dockerInference` (stale, from March); after renaming `Docker\run` → `run.stale-20261014` (author-approved), the same failure hit `docker-secrets-engine\engine.sock`, and the socket Docker had just created was also undeletable, so this is a host problem, not a stale file. Stopped at the 15-minute tooling timebox. **`docker compose up -d db` healthy is not yet verified**; author is rebooting, and it will be checked at the start of P2.
-- **Corrections / rejected suggestions:** _(author fills in during review)_
 
 ## P1 — Domain + unit tests (2026-10-14, elapsed 0:40)
 - **Asked:** implement the domain model (Quote aggregate, lines, customer snapshot, money, business clock, errors) and unit tests for R1–R10 per PLAN §7.
@@ -85,7 +84,6 @@ Phase entries are appended during the build. The "Corrections / rejected suggest
   - CA1707 (underscores in identifiers) disabled **for `tests/**` only** in `.editorconfig`: it conflicts with the rule-named test convention (PLAN §7). Production code keeps the rule.
   - Added `<Using Include="Xunit" />` to the test projects (what the xUnit template does) and `Microsoft.Extensions.TimeProvider.Testing` to the unit tests (allowed list).
 - **Verification:** `dotnet build -warnaserror` → 0 warnings, 0 errors. `dotnet test` → 63 passed, 0 failed (unit). P0's deferred gate: after the reboot, `docker compose up -d db` → `postgres:17-alpine` Up (healthy).
-- **Corrections / rejected suggestions:** _(author fills in during review)_
 
 ## P2 — Persistence (2026-10-14, elapsed 0:50)
 - **Asked:** DbContext + EF configurations (snake_case, complex customer, owned lines with internal key + position, precisions, concurrency token, indexes, sequence number), initial migration, startup-migration flag, fresh-context round-trip gate.
@@ -101,7 +99,6 @@ Phase entries are appended during the build. The "Corrections / rejected suggest
   - The round-trip gate is kept as a **permanent integration test** on Testcontainers (same `postgres:17-alpine` image), not a throwaway script. The fixture is the start of the P5 harness. The migration was also applied to the compose database via the startup flag.
   - Test collection class named `PostgresCollectionDefinition` (CA1711 rejects the `Collection` suffix).
 - **Verification:** `dotnet ef migrations script` reviewed (DDL in the P2 brief). `dotnet run` (Development) against compose → "Applying migration '…_InitialCreate'", `\dt` shows `quotes`, `quote_lines`, `__EFMigrationsHistory`; sequences `quote_number_seq`, `quote_lines_id_seq`. EF logs one `fail:` for the history-table probe on an empty database; that's expected and the migration then applies. `dotnet build -warnaserror` → 0/0. `dotnet test` → unit 63 passed, integration 2 passed, 0 failed.
-- **Corrections / rejected suggestions:** _(author fills in during review)_
 
 ## P3 — Create / Get / List (2026-10-14, elapsed 0:56)
 - **Asked:** route group `/api/quotes` with create, get (strong ETag) and list (filter/search/paging); FluentValidation endpoint filter; ProblemDetails wiring; OpenAPI + Scalar behind a flag; `.http` Kari scenario.
@@ -116,7 +113,6 @@ Phase entries are appended during the build. The "Corrections / rejected suggest
   - `Quotes:BusinessTimeZone` / `Quotes:DefaultValidityDays` go through `QuotesOptions`; `BusinessClock` and `TimeProvider.System` are singletons.
 - **Verification:** `dotnet build -warnaserror` → 0/0; `dotnet test` → 63 unit + 2 integration passed. Manual `curl.exe` against `dotnet run` (Development) + compose Postgres: create → 201 + `Location`, totals 18,215.00 / 4,553.75 / 22,768.75; get → 200 + `ETag: "1"`; list with status + search → 1 item, `isExpired` false; unknown id → 404 ProblemDetails; validation → 400 with `customer`, `lines[0].quantity` (1.0001) and `lines[0].vatRate` (missing), while `unitPrice: 950.000` passed; malformed JSON and integer enum → 400 ProblemDetails; `status=1` → 400. Same binding failures checked with **`ASPNETCORE_ENVIRONMENT=Production`** → 400 ProblemDetails (filled by `UseStatusCodePages`). OpenAPI → 404 with the flag off, 200 for `/openapi/v1.json` and `/scalar/v1` with it on.
 - **Observed, not changed:** the create response echoes decimals and timestamps at in-memory precision (`4750`, `…57.2873231`), while GET reads them back from Postgres (`4750.00`, `…57.287323`, microseconds). Values are numerically identical; only GET carries an ETag, so strong-ETag semantics hold.
-- **Corrections / rejected suggestions:** _(author fills in during review)_
 
 ## P4 — Update + transitions + concurrency (2026-10-14, elapsed 1:03)
 - **Asked:** `PUT` full replace; `/send`, `/accept`, `/reject` (empty body allowed); `If-Match` required on all four, with the PLAN §4 parsing rules, error precedence and mechanics; `DbUpdateConcurrencyException` → 412.
@@ -131,7 +127,6 @@ Phase entries are appended during the build. The "Corrections / rejected suggest
   - `/reject` validator rejects a blank reason ("omit it instead"), so meaningless reasons aren't stored.
   - Domain error messages reworded (`The quote is Accepted; only a Sent quote can be accepted.`) after `curl` showed "A Accepted quote…". This touched P1's `Quote.cs` (wording only).
 - **Verification:** `dotnet build -warnaserror` → 0/0; `dotnet test` → 63 unit + 2 integration passed. `curl.exe` against `dotnet run` + compose Postgres: PUT `"1"` → 200 v2; no `If-Match` → 428; `*` → 428; stale `"1"` on v2 → 412; `W/"2"` on v2 → 412; `W/"1", "1"` on v1 → 200; `garbage, "2"` → 400; `*, "2"` → 400; malformed on an unknown id → 400 (not 404); PUT after send with current / stale / no tag → 409 `quote.not_editable` all three (D19); stale send (GET v1 → other PUT v2 → send `"1"`) → 412 and still `Draft` v2; send → accept → 200 `Accepted` v4; reject with empty body (with and without `Content-Type: application/json`) → 200; blank reason → 400; accept after accept → 409 `quote.invalid_transition`. No `fail`/`crit` log lines for these handled errors.
-- **Corrections / rejected suggestions:** _(author fills in during review)_
 
 ## P5 — Integration tests (2026-10-14, elapsed 1:14)
 - **Asked:** a WebApplicationFactory + Testcontainers harness with a shared `FakeTimeProvider` and per-test reset; cover every PLAN §7 integration scenario, including the R11 two-`DbContext` test; mutation check.
@@ -146,7 +141,6 @@ Phase entries are appended during the build. The "Corrections / rejected suggest
   - Expiry tests advance the fake clock to Oslo midnight (`+12h` from 10:00Z in October = 22:00Z, CEST) and to one second before it.
 - **Mutation check:** removed the `Status != Draft` guard in `Quote.ReplaceDraftContent` → **5 failures**: unit `R2_Cannot_edit_sent_quote`, `R7_Terminal_quote_accepts_no_further_changes` (Accepted, Rejected); integration `R2_Edit_after_send_is_409_not_editable`, `D19_PUT_on_sent_quote_with_stale_tag_is_409_not_412`. Reverted with `git checkout` (file identical to HEAD) → all green.
 - **Verification:** `dotnet build -warnaserror` → 0/0; `dotnet test` → **63 unit + 51 integration passed, 0 failed, 0 skipped**.
-- **Corrections / rejected suggestions:** _(author fills in during review)_
 
 ## P6 — Polish and delivery (2026-10-14, elapsed 1:21)
 - **Asked:** multi-stage non-root Dockerfile with the Oslo time zone verified; `api` in compose; health checks; JSON logging outside Development; README; final self-review and a clean compose run.
@@ -167,7 +161,6 @@ Phase entries are appended during the build. The "Corrections / rejected suggest
   - Unused usings: IDE0005 raised to warning for a one-off build → none. A planted unused `using` was flagged, so the check works; both files restored.
   - Secrets: only the dev-only compose/Development credentials.
   - `.gitignore` covers `bin/`, `obj/`, `.vs/`, `.idea/` (`git check-ignore`), and no build output is tracked.
-- **Corrections / rejected suggestions:** _(author fills in during review)_
 
 ## Final review — multi-agent bug hunt + fixes (2026-10-14, elapsed 2:26)
 - **Asked:** a final check for remaining bugs, then fix the ones the author chose: 1–6 and 8–11, add 12 to Known limitations, fix 7 with a small mapping.
@@ -194,4 +187,3 @@ Phase entries are appended during the build. The "Corrections / rejected suggest
   - The charset mapping keys on the throwing type rather than the message text.
   - Request records were reordered (required members first) so optional ones can take defaults. JSON binds by name, so the wire format is unchanged.
 - **Verification:** `dotnet build -warnaserror` → 0/0. `dotnet test` → **64 unit + 66 integration passed**. The 12 new tests all fail against the previous `src/` (stash check) and pass with the fixes. Rebuilt container, checked with curl: `-0` → 201 with `0.00`; NUL title or search → 400; `page=107374184` → 400 and the largest allowed page → 200; `"Labour, Material"` → 400; `charset=bogus` → 415 ProblemDetails; `Accept: text/html` 409 and 404 → `application/problem+json`; zero error-level log lines.
-- **Corrections / rejected suggestions:** _(author fills in during review)_

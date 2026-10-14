@@ -118,7 +118,6 @@ dotnet test
 
 ## AI usage & verification
 
-<!-- DRAFT: author to rewrite in own words -->
 
 AI was used for planning and for writing most of the code; every phase was reviewed by me and verified by running it.
 The full log, including what was rejected or corrected, is in [docs/ai/AI_LOG.md](docs/ai/AI_LOG.md).
