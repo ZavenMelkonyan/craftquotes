@@ -32,6 +32,7 @@ Content-Type: application/json
 }
 
 ### Ola adds the forgotten RCD: full replace of the draft, If-Match = the version he saw (1 → 2)
+# PUT has no defaults, so validUntil is sent explicitly; reusing the created value keeps this file valid on any date.
 PUT {{baseUrl}}/api/quotes/{{create.response.body.$.id}}
 If-Match: "1"
 Content-Type: application/json
@@ -39,7 +40,7 @@ Content-Type: application/json
 {
   "title": "EV charger installation",
   "customer": { "name": "Kari Nordmann", "email": "kari@example.com", "siteAddress": "Fjellveien 12, 5019 Bergen" },
-  "validUntil": "2026-11-13",
+  "validUntil": "{{create.response.body.$.validUntil}}",
   "lines": [
     { "type": "Labour",   "description": "Installation, electrician", "quantity": 5,  "unit": "h",   "unitPrice": 950,  "vatRate": 0.25 },
     { "type": "Material", "description": "EV charger 11 kW",          "quantity": 1,  "unit": "pcs", "unitPrice": 8990, "vatRate": 0.25 },
@@ -57,7 +58,7 @@ Content-Type: application/json
 {
   "title": "EV charger installation",
   "customer": { "name": "Kari Nordmann", "email": "kari@example.com" },
-  "validUntil": "2026-11-13",
+  "validUntil": "{{create.response.body.$.validUntil}}",
   "lines": []
 }
 
@@ -73,7 +74,7 @@ Content-Type: application/json
 {
   "title": "Too late",
   "customer": { "name": "Kari Nordmann", "email": "kari@example.com" },
-  "validUntil": "2026-11-13",
+  "validUntil": "{{create.response.body.$.validUntil}}",
   "lines": []
 }
 
